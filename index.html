@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/pmtiles@3.0.6/dist/pmtiles.js"></script>
+
+  <style>
+    body,
+    html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #map {
+      height: 100%;
+      width: 100%;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+  <script src="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.js"></script>
+  <script>
+    const protocol = new pmtiles.Protocol();
+    maplibregl.addProtocol('pmtiles', protocol.tile);
+
+    const map = new maplibregl.Map({
+      container: 'map',
+      style: "style.json",
+      center: [8.34, 46.858],
+      zoom: 7,
+      hash: 'map',
+      maxZoom: 25
+    });
+
+    map.on('load', async () => {
+      map.addSource('line-source-0', {
+        type: 'vector',
+        url: "pmtiles://http://localhost:3000/data/magnetized-0.pmtiles"
+      });
+      map.addSource('line-source-1', {
+        type: 'vector',
+        url: "pmtiles://http://localhost:3000/data/magnetized-1.pmtiles"
+      });
+      map.addSource('line-source-2', {
+        type: 'vector',
+        url: "pmtiles://http://localhost:3000/data/magnetized-2.pmtiles"
+      });
+
+      map.addLayer({
+        id: 'line-layer-0',
+        type: 'line',
+        source: 'line-source-0',
+        'source-layer': 'magnetized',
+        layout: {
+          'line-cap': 'round',
+        },
+        paint: {
+          'line-color': '#1abc9c',
+          'line-width': 3,
+          'line-opacity': 1,
+          'line-dasharray': [2, 3],
+        }
+      });
+
+      map.addLayer({
+        id: 'line-layer-1',
+        type: 'line',
+        source: 'line-source-1',
+        'source-layer': 'magnetized',
+        layout: {
+          'line-cap': 'round'
+        },
+        paint: {
+          'line-color': '#9b59b6',
+          'line-width': 4,
+          'line-opacity': 1,
+          'line-dasharray': [4, 3],
+        }
+      });
+
+      map.addLayer({
+        id: 'line-layer-2',
+        type: 'line',
+        source: 'line-source-2',
+        'source-layer': 'magnetized',
+        layout: {
+          'line-cap': 'round'
+        },
+        paint: {
+          'line-color': '#2980b9',
+          'line-width': 5,
+          'line-opacity': 1,
+        }
+      });
+    });
+  </script>
+</body>
+
+</html>

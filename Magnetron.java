@@ -101,17 +101,20 @@ public class Magnetron {
         List<LineString> result = new ArrayList<>();
 
         STRtree strTree = getTree(lines);
-
+        int excludeRange = 50;
         for (var line : lines) {
             var coordinates = line.getCoordinates();
-            List<Point> excludedPoints = new ArrayList<>();
-            for (var coordinate : coordinates) {
-                Point point = GeoUtils.JTS_FACTORY.createPoint(coordinate);
-                excludedPoints.add(point);
-            }
             List<Point> magnetizedPoints = new ArrayList<>();
-            for (var coordinate : coordinates) {
-                Point queryPoint = GeoUtils.JTS_FACTORY.createPoint(coordinate);
+            for (var i = 0; i < coordinates.length; i++) {
+                List<Point> excludedPoints = new ArrayList<>();
+                for (var ii = i - excludeRange; ii < i + excludeRange; ii++) {
+                    if (ii < 0 || ii >= coordinates.length) {
+                        continue;
+                    }
+                    Point point = GeoUtils.JTS_FACTORY.createPoint(coordinates[ii]);
+                    excludedPoints.add(point);
+                }
+                Point queryPoint = GeoUtils.JTS_FACTORY.createPoint(coordinates[i]);
                 Point closestPoint = findNearestPoint(strTree, queryPoint, radius, excludedPoints);
                 if (closestPoint == null) {
                     magnetizedPoints.add(queryPoint);
@@ -149,7 +152,7 @@ public class Magnetron {
             merger2.add(line);
         }
 
-        double loopMinLength = 5 * densifyDistance;
+        double loopMinLength = 10 * densifyDistance;
         merger2.setLoopMinLength(loopMinLength);
         merger2.setStubMinLength(loopMinLength);
         merger2.setTolerance(0.1 * densifyDistance);
