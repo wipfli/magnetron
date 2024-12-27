@@ -3,15 +3,6 @@ Collapse carriageways by making them magnetic
 
 When rendering roads with multiple [carriageways](https://en.wikipedia.org/wiki/Carriageway) at low zoom levels, for example at zoom 7 in MapLibre GL JS, one cannot visually separate the individual carriageways. They are too close together at that scale. But by default, [Planetiler](https://github.com/onthegomap/planetiler) and other vector tile generators will still include two lines for dual carriageways at all zoom levels. This increases tile size and leads to more work for the frontend rendering engine without having any cartographic benefit.
 
-The idea of magnetron is to collapse carriageways by introducing an attractive force between lines. The algorithm roughly looks like this:
-
-- For every point of a line: 
-  - Find the closest point of a neighboring line. Only search up to a certain distance.
-  - If a closest neighbor was found, compute the midpoint between the current point and the neighbor and add this midpoint to a new line.
-  - Else add the current point to the new line.
-
-Repeat this multiple times. For example, repeat twice to first collapse triple to dual, then dual to single carriageways.
-
 The name is inspired by https://github.com/migurski/Skeletron.
 
 ## Demo
