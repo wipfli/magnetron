@@ -9,7 +9,6 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.PrecisionModel;
 import org.locationtech.jts.index.strtree.STRtree;
-import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Envelope;
 
@@ -142,7 +141,7 @@ public class Magnetron {
         }
         var merged = merger.getMergedLineStrings();
 
-        double radius = 2 * densifyDistance;
+        double radius = 5 * densifyDistance;
         var magnetized = magnetize(merged, radius);
 
         var merger2 = new LoopLineMerger();
@@ -152,17 +151,17 @@ public class Magnetron {
             merger2.add(line);
         }
 
-        double loopMinLength = 10 * densifyDistance;
+        double loopMinLength = 5 * densifyDistance;
         merger2.setLoopMinLength(loopMinLength);
         merger2.setStubMinLength(loopMinLength);
-        merger2.setTolerance(0.1 * densifyDistance);
+        merger2.setTolerance(0.5 * densifyDistance);
 
         return merger2.getMergedLineStrings();
     }
     public static void main(String[] args) {
 
         String filePath = "data/input.csv";
-        double densifyDistance = 0.001;
+        double densifyDistance = 1e-6;
 
         List<LineString> lines = getInput(filePath);
 

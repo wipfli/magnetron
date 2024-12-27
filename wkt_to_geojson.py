@@ -1,4 +1,13 @@
 import json
+import math
+
+def web_mercator_to_lon_lat(xy):
+    x = xy[0]
+    y = xy[1]
+    lon = x * 360 - 180
+    lat_rad = math.atan(math.sinh(math.pi * (1 - 2 * y)))
+    lat = math.degrees(lat_rad)
+    return [lon, lat]
 
 def linestring_to_geometry(wkt_linestring):
     coords_text = wkt_linestring.replace("LINESTRING", "").replace("(", "").replace(")", "").strip()
@@ -8,7 +17,7 @@ def linestring_to_geometry(wkt_linestring):
     ]
     geometry = {
         "type": "LineString",
-        "coordinates": coordinates
+        "coordinates": [web_mercator_to_lon_lat(c) for c in coordinates]
     }
     return geometry
 
