@@ -9,9 +9,6 @@ The name is inspired by https://github.com/migurski/Skeletron.
 
 https://wipfli.github.io/magnetron/
 
-<a href="https://wipfli.github.io/magnetron/"><img src="screenshot.png"></a>
-<i>Demo of collapsed carriageways in Hauensteintunnel. The original geometry is shown by green short dashed lines. There are initially 3 parallel carriageways. After one iteration, 2 parallel lines are left shown in purple with long dashes. After a second iteration, the two purple dashed lines are collapsed into a single solid blue line.</i>
-
 ## Usage
 
 Put some linestrings in a geojson file called `data/input.geojson`.
