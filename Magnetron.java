@@ -2,6 +2,7 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 import java.util.ArrayList;
 
 import org.locationtech.jts.geom.CoordinateXY;
@@ -136,22 +137,28 @@ public class Magnetron {
         List<LineString> result = new ArrayList<>();
 
         STRtree strTree = getTree(lines);
-        int excludeRange = 50;
+        Set<Point> uniqueEndpoints = UniqueLineEndpoints.findUniqueEndpoints(lines);
+        // int excludeRange = 50;
         for (var line : lines) {
             var coordinates = line.getCoordinates();
             List<Point> magnetizedPoints = new ArrayList<>();
             for (var i = 0; i < coordinates.length; i++) {
-                List<Point> excludedPoints = new ArrayList<>();
-                for (var ii = i - excludeRange; ii < i + excludeRange; ii++) {
-                    if (ii < 0 || ii >= coordinates.length) {
-                        continue;
-                    }
-                    Point point = GeoUtils.JTS_FACTORY.createPoint(coordinates[ii]);
-                    excludedPoints.add(point);
-                }
+                // List<Point> excludedPoints = new ArrayList<>();
+                // for (var ii = i - excludeRange; ii < i + excludeRange; ii++) {
+                //     if (ii < 0 || ii >= coordinates.length) {
+                //         continue;
+                //     }
+                //     Point point = GeoUtils.JTS_FACTORY.createPoint(coordinates[ii]);
+                //     excludedPoints.add(point);
+                // }
                 Point queryPoint = GeoUtils.JTS_FACTORY.createPoint(coordinates[i]);
-                List<Point> closePoints = findClosePoints(strTree, queryPoint, radius);
-                magnetizedPoints.add(getMidpoint(closePoints));
+                if (uniqueEndpoints.contains(queryPoint)) {
+                    magnetizedPoints.add(queryPoint);
+                }
+                else {
+                    List<Point> closePoints = findClosePoints(strTree, queryPoint, radius);
+                    magnetizedPoints.add(getMidpoint(closePoints));
+                }
 
                 // Point closestPoint = findNearestPoint(strTree, queryPoint, radius, excludedPoints);
                 // if (closestPoint == null) {
@@ -180,7 +187,7 @@ public class Magnetron {
         }
         var merged = merger.getMergedLineStrings();
 
-        double radius = 2 * densifyDistance;
+        double radius = 5 * densifyDistance;
         var magnetized = magnetize(merged, radius);
 
         var merger2 = new LoopLineMerger();
@@ -193,7 +200,7 @@ public class Magnetron {
         double loopMinLength = 5 * densifyDistance;
         merger2.setLoopMinLength(loopMinLength);
         merger2.setStubMinLength(loopMinLength);
-        merger2.setTolerance(0.1 * densifyDistance);
+        merger2.setTolerance(0.5 * densifyDistance);
 
         return merger2.getMergedLineStrings();
     }
@@ -204,10 +211,18 @@ public class Magnetron {
 
         List<LineString> lines = getInput(filePath);
 
-        int iterations = 20;
+        int iterations = 10;
         for (int i = 0; i < iterations; ++i) {
             lines = process(lines, densifyDistance);
         }
+
+        var merger = new LoopLineMerger();
+        merger.setPrecisionModel(new PrecisionModel());
+        for (var line : lines) {
+            merger.add(line);
+        }
+        merger.setTolerance(1);
+        lines = merger.getMergedLineStrings();
         
         for (var line : lines) {
             System.out.println(line);
