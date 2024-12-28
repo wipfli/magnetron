@@ -17,76 +17,53 @@ import com.onthegomap.planetiler.geo.GeoUtils;
 import com.onthegomap.planetiler.util.LoopLineMerger;
 
 public class Magnetron {
+    private final List<LineString> input = new ArrayList<>();
+    private double loopMinLength = 0.0;
+    private double radius = 0.0;
+    private double densifyDistance = 0.0;
+    private int iterations = 0;
+    private double tolernace = 0.0;
 
-    static LineString getLinestring(double startLat, double startLon, double endLat, double endLon) {
-        var coordinates = new Coordinate[2];
-        coordinates[0] = new CoordinateXY(startLon, startLat);
-        coordinates[1] = new CoordinateXY(endLon, endLat);
-        return GeoUtils.JTS_FACTORY.createLineString(coordinates);
+    public Magnetron add(LineString line) {
+        input.add(line);
+        return this;
     }
 
-    static List<LineString> getInput(String filePath) {
-        List<LineString> result = new ArrayList<>();
-        String line;
-        String delimiter = ",";
-        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
-            while ((line = br.readLine()) != null) {
-                String[] values = line.split(delimiter);
-
-                double startLon = Double.parseDouble(values[0]);
-                double startLat = Double.parseDouble(values[1]);
-                double endLon = Double.parseDouble(values[2]);
-                double endLat = Double.parseDouble(values[3]);
-
-                var linestring = getLinestring(startLat, startLon, endLat, endLon);
-                result.add(linestring);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return result;
+    public Magnetron setLoopMinLength(double loopMinLength) {
+        this.loopMinLength = loopMinLength;
+        return this;
     }
 
-    public static Point findNearestPoint(
+    public Magnetron setRadius(double radius) {
+        this.radius = radius;
+        return this;
+    }
+
+    public Magnetron setDensifyDistance(double densifyDistance) {
+        this.densifyDistance = densifyDistance;
+        return this;
+    }
+
+    public Magnetron setIterations(int iterations) {
+        this.iterations = iterations;
+        return this;
+    }
+
+    public Magnetron setTolerance(double tolernace) {
+        this.tolernace = tolernace;
+        return this;
+    }
+
+    private List<Point> findClosePoints(
         STRtree strTree,
-        Point queryPoint,
-        double searchRadius,
-        List<Point> excludedPoints
-    ) {
-        Point nearestPoint = null;
-        double minDistance = Double.MAX_VALUE;
-        Envelope searchEnvelope = new Envelope(
-            queryPoint.getX() - searchRadius,
-            queryPoint.getX() + searchRadius,
-            queryPoint.getY() - searchRadius,
-            queryPoint.getY() + searchRadius
-        );
-        List<?> candidates = strTree.query(searchEnvelope);
-        for (Object candidate : candidates) {
-            Point point = (Point) candidate;
-            if (excludedPoints.contains(point)) {
-                continue;
-            }
-            double distance = queryPoint.distance(point);
-            if (distance < minDistance) {
-                minDistance = distance;
-                nearestPoint = point;
-            }
-        }
-        return nearestPoint;
-    }
-
-    public static List<Point> findClosePoints(
-        STRtree strTree,
-        Point queryPoint,
-        double searchRadius
+        Point queryPoint
     ) {
         List<Point> result = new ArrayList<>();
         Envelope searchEnvelope = new Envelope(
-            queryPoint.getX() - searchRadius,
-            queryPoint.getX() + searchRadius,
-            queryPoint.getY() - searchRadius,
-            queryPoint.getY() + searchRadius
+            queryPoint.getX() - radius,
+            queryPoint.getX() + radius,
+            queryPoint.getY() - radius,
+            queryPoint.getY() + radius
         );
         List<?> candidates = strTree.query(searchEnvelope);
         for (var c : candidates) {
@@ -97,7 +74,7 @@ public class Magnetron {
         return result;
     }
 
-    public static STRtree getTree(List<LineString> lines) {
+    private static STRtree getTree(List<LineString> lines) {
         STRtree strTree = new STRtree();
         for (var line : lines) {
             for (var coordinate : line.getCoordinates()) {
@@ -108,17 +85,7 @@ public class Magnetron {
         return strTree;
     }
 
-    public static Point getMidpoint(Point p1, Point p2) {
-        Coordinate c1 = p1.getCoordinate();
-        Coordinate c2 = p2.getCoordinate();
-
-        double midX = (c1.getX() + c2.getX()) / 2;
-        double midY = (c1.getY() + c2.getY()) / 2;
-
-        return GeoUtils.JTS_FACTORY.createPoint(new Coordinate(midX, midY));
-    }
-
-    public static Point getMidpoint(List<Point> points) {
+    private static Point getMidpoint(List<Point> points) {
         double midX = 0.0;
         double midY = 0.0;
         for (Point point : points) {
@@ -133,40 +100,23 @@ public class Magnetron {
         return GeoUtils.JTS_FACTORY.createPoint(new Coordinate(midX, midY));
     }
 
-    public static List<LineString> magnetize(List<LineString> lines, double radius) {
+    private List<LineString> magnetize(List<LineString> lines) {
         List<LineString> result = new ArrayList<>();
 
         STRtree strTree = getTree(lines);
         Set<Point> uniqueEndpoints = UniqueLineEndpoints.findUniqueEndpoints(lines);
-        // int excludeRange = 50;
         for (var line : lines) {
             var coordinates = line.getCoordinates();
             List<Point> magnetizedPoints = new ArrayList<>();
-            for (var i = 0; i < coordinates.length; i++) {
-                // List<Point> excludedPoints = new ArrayList<>();
-                // for (var ii = i - excludeRange; ii < i + excludeRange; ii++) {
-                //     if (ii < 0 || ii >= coordinates.length) {
-                //         continue;
-                //     }
-                //     Point point = GeoUtils.JTS_FACTORY.createPoint(coordinates[ii]);
-                //     excludedPoints.add(point);
-                // }
-                Point queryPoint = GeoUtils.JTS_FACTORY.createPoint(coordinates[i]);
+            for (var coordinate : coordinates) {
+                Point queryPoint = GeoUtils.JTS_FACTORY.createPoint(coordinate);
                 if (uniqueEndpoints.contains(queryPoint)) {
                     magnetizedPoints.add(queryPoint);
                 }
                 else {
-                    List<Point> closePoints = findClosePoints(strTree, queryPoint, radius);
+                    List<Point> closePoints = findClosePoints(strTree, queryPoint);
                     magnetizedPoints.add(getMidpoint(closePoints));
                 }
-
-                // Point closestPoint = findNearestPoint(strTree, queryPoint, radius, excludedPoints);
-                // if (closestPoint == null) {
-                //     magnetizedPoints.add(queryPoint);
-                // }
-                // else {
-                //     magnetizedPoints.add(getMidpoint(queryPoint, closestPoint));
-                // }
             }
             result.add(GeoUtils.JTS_FACTORY.createLineString(magnetizedPoints.stream().map(Point::getCoordinate).toArray(Coordinate[]::new)));
         }
@@ -174,7 +124,7 @@ public class Magnetron {
         return result;
     }
 
-    public static List<LineString> process(List<LineString> lines, double densifyDistance) {
+    private List<LineString> iterate(List<LineString> lines) {
         List<LineString> densified = new ArrayList<>();
         for (var line : lines) {
             densified.add(LineStringDensifier.densify(line, densifyDistance));
@@ -187,8 +137,7 @@ public class Magnetron {
         }
         var merged = merger.getMergedLineStrings();
 
-        double radius = 5 * densifyDistance;
-        var magnetized = magnetize(merged, radius);
+        var magnetized = magnetize(merged);
 
         var merger2 = new LoopLineMerger();
         merger2.setPrecisionModel(new PrecisionModel());
@@ -197,35 +146,49 @@ public class Magnetron {
             merger2.add(line);
         }
 
-        double loopMinLength = 5 * densifyDistance;
         merger2.setLoopMinLength(loopMinLength);
         merger2.setStubMinLength(loopMinLength);
-        merger2.setTolerance(0.5 * densifyDistance);
+        merger2.setTolerance(tolernace);
 
         return merger2.getMergedLineStrings();
     }
-    public static void main(String[] args) {
 
-        String filePath = "data/input.csv";
-        double densifyDistance = 1e-6;
 
-        List<LineString> lines = getInput(filePath);
-
-        int iterations = 10;
+    public List<LineString> getMagnetizedLineStrings() {
+        List<LineString> lines = List.copyOf(input);
         for (int i = 0; i < iterations; ++i) {
-            lines = process(lines, densifyDistance);
+            lines = iterate(lines);
         }
-
-        var merger = new LoopLineMerger();
-        merger.setPrecisionModel(new PrecisionModel());
-        for (var line : lines) {
-            merger.add(line);
-        }
-        merger.setTolerance(1);
-        lines = merger.getMergedLineStrings();
-        
-        for (var line : lines) {
-            System.out.println(line);
-        }
+        return lines;
     }
+
+    // double radius = 5 * densifyDistance;
+    // double loopMinLength = 5 * densifyDistance;
+    // double tolerance = 0.5 * densifyDistance
+
+
+    // public static void main(String[] args) {
+
+    //     String filePath = "data/input.csv";
+    //     double densifyDistance = 1e-6;
+
+    //     List<LineString> lines = getInput(filePath);
+
+    //     int iterations = 10;
+    //     for (int i = 0; i < iterations; ++i) {
+    //         lines = process(lines, densifyDistance);
+    //     }
+
+    //     var merger = new LoopLineMerger();
+    //     merger.setPrecisionModel(new PrecisionModel());
+    //     for (var line : lines) {
+    //         merger.add(line);
+    //     }
+    //     merger.setTolerance(1);
+    //     lines = merger.getMergedLineStrings();
+        
+    //     for (var line : lines) {
+    //         System.out.println(line);
+    //     }
+    // }
 }
