@@ -1,11 +1,7 @@
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
 import java.util.List;
 import java.util.Set;
 import java.util.ArrayList;
 
-import org.locationtech.jts.geom.CoordinateXY;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.PrecisionModel;
@@ -140,15 +136,15 @@ public class Magnetron {
         var magnetized = magnetize(merged);
 
         var merger2 = new LoopLineMerger();
-        merger2.setPrecisionModel(new PrecisionModel());
+        merger2.setPrecisionModel(new PrecisionModel(16));
 
         for (var line : magnetized) {
             merger2.add(line);
         }
 
-        merger2.setLoopMinLength(loopMinLength);
-        merger2.setStubMinLength(loopMinLength);
-        merger2.setTolerance(tolernace);
+        // merger2.setLoopMinLength(loopMinLength);
+        // merger2.setStubMinLength(loopMinLength);
+        // merger2.setTolerance(tolernace);
 
         return merger2.getMergedLineStrings();
     }
@@ -159,7 +155,18 @@ public class Magnetron {
         for (int i = 0; i < iterations; ++i) {
             lines = iterate(lines);
         }
-        return lines;
+        var merger = new LoopLineMerger();
+        merger.setPrecisionModel(new PrecisionModel());
+
+        for (var line : lines) {
+            merger.add(line);
+        }
+
+        merger.setLoopMinLength(loopMinLength);
+        merger.setStubMinLength(loopMinLength);
+        merger.setTolerance(tolernace);
+
+        return merger.getMergedLineStrings(); 
     }
 
     // double radius = 5 * densifyDistance;
