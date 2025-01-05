@@ -309,8 +309,8 @@ public class MyFeatureMerge {
           // result.add(feature1.copyWithNewGeometry(A));
           // result.add(feature1.copyWithNewGeometry(B));
 
-          result.add(feature1.copyWithNewGeometry(segment.getStartPoint()));
-          result.add(feature1.copyWithNewGeometry(segment.getEndPoint()));
+          // result.add(feature1.copyWithNewGeometry(segment.getStartPoint()));
+          // result.add(feature1.copyWithNewGeometry(segment.getEndPoint()));
         }
       }
     }

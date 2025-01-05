@@ -1,5 +1,8 @@
 import java.util.List;
 import java.util.Set;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.ArrayList;
 
 import org.locationtech.jts.geom.Coordinate;
@@ -96,22 +99,95 @@ public class Magnetron {
         return GeoUtils.JTS_FACTORY.createPoint(new Coordinate(midX, midY));
     }
 
+    private static Point getMidpoint(List<Point> points, Map<Point, Double> weights) {
+        double weightedSumX = 0.0;
+        double weightedSumY = 0.0;
+        double totalWeight = 0.0;
+    
+        for (Point point : points) {
+            double weight = weights.get(point);
+            // System.out.println(weight);
+            Coordinate coordinate = point.getCoordinate();
+            weightedSumX += coordinate.getX() * weight;
+            weightedSumY += coordinate.getY() * weight;
+            totalWeight += weight;
+        }
+    
+        if (totalWeight > 0.0) {
+            weightedSumX /= totalWeight;
+            weightedSumY /= totalWeight;
+        }
+        else {
+            System.out.println("totalWeigth is zero " + weights.get(points.getLast()));
+        }
+    
+        return GeoUtils.JTS_FACTORY.createPoint(new Coordinate(weightedSumX, weightedSumY));
+    }
+
+    private static Point getMidpoint(Point A, Point B) {
+        List<Point> points = new ArrayList<>();
+        points.add(A);
+        points.add(B);
+        return getMidpoint(points);
+    }
+
+    private static Map<Point, Double> getPointToAngleMap(List<LineString> lines) {
+        Map<Point, Double> map = new HashMap<>();
+        for (var line : lines) {
+            var coordinates = line.getCoordinates();
+            double angle = 0.0;
+            for (int i = 0; i < coordinates.length - 1; ++i) {
+                double dx = coordinates[i + 1].getX() - coordinates[i].getX();
+                double dy = coordinates[i + 1].getY() - coordinates[i].getY();
+                angle = Math.atan2(dy, dx);
+                var point = GeoUtils.JTS_FACTORY.createPoint(coordinates[i]);
+                map.put(point, angle);
+            }
+            var lastPoint = GeoUtils.JTS_FACTORY.createPoint(coordinates[coordinates.length - 1]);
+            map.put(lastPoint, angle);
+        }
+        return map;
+    }
+
     private List<LineString> magnetize(List<LineString> lines) {
         List<LineString> result = new ArrayList<>();
 
+        int excludeRange = 50;
         STRtree strTree = getTree(lines);
         Set<Point> uniqueEndpoints = UniqueLineEndpoints.findUniqueEndpoints(lines);
+        Map<Point, Double> pointToAngleMap = getPointToAngleMap(lines);
         for (var line : lines) {
             var coordinates = line.getCoordinates();
             List<Point> magnetizedPoints = new ArrayList<>();
-            for (var coordinate : coordinates) {
-                Point queryPoint = GeoUtils.JTS_FACTORY.createPoint(coordinate);
+            for (var i = 0; i < coordinates.length; i++) {
+                Set<Point> excludedPoints = new HashSet<>();
+                for (var ii = i - excludeRange; ii < i + excludeRange; ii++) {
+                    if (ii < 0 || ii >= coordinates.length) {
+                        continue;
+                    }
+                    Point point = GeoUtils.JTS_FACTORY.createPoint(coordinates[ii]);
+                    excludedPoints.add(point);
+                }
+                Point queryPoint = GeoUtils.JTS_FACTORY.createPoint(coordinates[i]);
                 if (uniqueEndpoints.contains(queryPoint)) {
                     magnetizedPoints.add(queryPoint);
                 }
                 else {
                     List<Point> closePoints = findClosePoints(strTree, queryPoint);
-                    magnetizedPoints.add(getMidpoint(closePoints));
+                    closePoints.removeAll(excludedPoints);
+                    Map<Point, Double> weights = new HashMap<>();
+                    double queryPointAngle = pointToAngleMap.get(queryPoint);
+                    for (var closePoint : closePoints) {
+                        double closePointAngle = pointToAngleMap.get(closePoint);
+                        double angleDifference = queryPointAngle - closePointAngle;
+                        double angleWeight = Math.pow(Math.cos(angleDifference), 2);
+                        double distance = queryPoint.distance(closePoint);
+                        double distanceWeight = distance > 0.0 ? 1 / distance : 1;
+                        weights.put(closePoint, distanceWeight * angleWeight);
+                    }
+                    var midpointOthers = closePoints.size() > 0 ? getMidpoint(closePoints, weights) : queryPoint;
+                    var midpoint = getMidpoint(queryPoint, midpointOthers);
+                    magnetizedPoints.add(midpoint);
                 }
             }
             result.add(GeoUtils.JTS_FACTORY.createLineString(magnetizedPoints.stream().map(Point::getCoordinate).toArray(Coordinate[]::new)));
@@ -126,46 +202,50 @@ public class Magnetron {
             densified.add(LineStringDensifier.densify(line, densifyDistance));
         }
 
-        var merger = new LoopLineMerger();
-        merger.setPrecisionModel(new PrecisionModel());
-        for (var line : densified) {
-            merger.add(line);
-        }
-        var merged = merger.getMergedLineStrings();
+        // var merger = new LoopLineMerger();
+        // merger.setPrecisionModel(new PrecisionModel());
+        // for (var line : densified) {
+        //     merger.add(line);
+        // }
+        // var merged = merger.getMergedLineStrings();
 
-        var magnetized = magnetize(merged);
+        var magnetized = magnetize(densified);
+        return magnetized;
 
-        var merger2 = new LoopLineMerger();
-        merger2.setPrecisionModel(new PrecisionModel(16));
+        // var merger = new LoopLineMerger();
+        // merger.setPrecisionModel(new PrecisionModel());
 
-        for (var line : magnetized) {
-            merger2.add(line);
-        }
+        // for (var line : magnetized) {
+        //     merger.add(line);
+        // }
 
         // merger2.setLoopMinLength(loopMinLength);
         // merger2.setStubMinLength(loopMinLength);
         // merger2.setTolerance(tolernace);
 
-        return merger2.getMergedLineStrings();
+        // return merger.getMergedLineStrings();
     }
 
 
     public List<LineString> getMagnetizedLineStrings() {
         List<LineString> lines = List.copyOf(input);
-        for (int i = 0; i < iterations; ++i) {
-            lines = iterate(lines);
-        }
         var merger = new LoopLineMerger();
         merger.setPrecisionModel(new PrecisionModel());
-
         for (var line : lines) {
             merger.add(line);
         }
-
+        lines = merger.getMergedLineStrings();
+        for (int i = 0; i < iterations; ++i) {
+            lines = iterate(lines);
+        }
+        merger = new LoopLineMerger();
+        merger.setPrecisionModel(new PrecisionModel(16));
+        for (var line : lines) {
+            merger.add(line);
+        }
         merger.setLoopMinLength(loopMinLength);
         merger.setStubMinLength(loopMinLength);
         merger.setTolerance(tolernace);
-
         return merger.getMergedLineStrings(); 
     }
 
