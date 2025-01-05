@@ -33,22 +33,22 @@
     const map = new maplibregl.Map({
       container: 'map',
       style: "style.json",
-      center: [8.2954, 47.07061],
-      zoom: 13,
+      center: [-70.912, 42.294],
+      zoom: 8.5,
       hash: 'map',
       maxZoom: 25
     });
 
     map.on('load', async () => {
-      map.addSource('line-source-20', {
+      map.addSource('line-source', {
         type: 'vector',
-        url: "pmtiles://http://localhost:3000/data/a.pmtiles"
+        url: "pmtiles://https://wipfli.github.io/magnetron/data/boston.pmtiles"
       });
 
       map.addLayer({
-        id: 'line-layer-20',
+        id: 'line-layer',
         type: 'line',
-        source: 'line-source-20',
+        source: 'line-source',
         'source-layer': 'lines',
       });
     });
