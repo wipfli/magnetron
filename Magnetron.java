@@ -4,6 +4,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.ArrayList;
+import java.util.Comparator;
 
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.LineString;
@@ -154,7 +155,7 @@ public class Magnetron {
 
         int excludeRange = 50;
         STRtree strTree = getTree(lines);
-        Set<Point> uniqueEndpoints = UniqueLineEndpoints.findUniqueEndpoints(lines);
+        Set<Point> uniqueEndpoints = new HashSet<>(); // UniqueLineEndpoints.findUniqueEndpoints(lines);
         Map<Point, Double> pointToAngleMap = getPointToAngleMap(lines);
         for (var line : lines) {
             var coordinates = line.getCoordinates();
@@ -180,13 +181,20 @@ public class Magnetron {
                     for (var closePoint : closePoints) {
                         double closePointAngle = pointToAngleMap.get(closePoint);
                         double angleDifference = queryPointAngle - closePointAngle;
-                        double angleWeight = Math.pow(Math.cos(angleDifference), 2);
+                        double angleWeight = Math.abs(Math.cos(angleDifference));
                         double distance = queryPoint.distance(closePoint);
                         double distanceWeight = distance > 0.0 ? 1 / distance : 1;
                         weights.put(closePoint, distanceWeight * angleWeight);
                     }
                     var midpointOthers = closePoints.size() > 0 ? getMidpoint(closePoints, weights) : queryPoint;
                     var midpoint = getMidpoint(queryPoint, midpointOthers);
+                    weights.clear();
+                    weights.put(queryPoint, 0.05);
+                    weights.put(midpoint, 0.95);
+                    List<Point> points = new ArrayList<>();
+                    points.add(queryPoint);
+                    points.add(midpoint);
+                    midpoint = getMidpoint(points, weights);
                     magnetizedPoints.add(midpoint);
                 }
             }
@@ -231,6 +239,7 @@ public class Magnetron {
         List<LineString> lines = List.copyOf(input);
         var merger = new LoopLineMerger();
         merger.setPrecisionModel(new PrecisionModel());
+        merger.setMergeStrokes(true);
         for (var line : lines) {
             merger.add(line);
         }
@@ -239,7 +248,8 @@ public class Magnetron {
             lines = iterate(lines);
         }
         merger = new LoopLineMerger();
-        merger.setPrecisionModel(new PrecisionModel(16));
+        // merger.setPrecisionModel(new PrecisionModel(16));
+        merger.setPrecisionModel(new PrecisionModel());
         for (var line : lines) {
             merger.add(line);
         }
@@ -248,6 +258,73 @@ public class Magnetron {
         merger.setTolerance(tolernace);
         return merger.getMergedLineStrings(); 
     }
+
+    public List<LineString> getErasedLineStrings() {
+        List<LineString> lines = List.copyOf(input);
+        var merger = new LoopLineMerger();
+        merger.setPrecisionModel(new PrecisionModel());
+        // merger.setMergeStrokes(true);
+        for (var line : lines) {
+            merger.add(line);
+        }
+        lines = merger.getMergedLineStrings();
+        lines.sort(Comparator.comparingDouble(LineString::getLength).reversed());
+        List<LineString> densified = new ArrayList<>();
+        for (var line : lines) {
+            densified.add(LineStringDensifier.densify(line, densifyDistance));
+        }
+        lines = densified;
+        STRtree strTree = getTree(lines);
+        Set<Point> erasedPoints = new HashSet<>();
+        for (var line : lines) {
+            var coordinates = line.getCoordinates();
+            Set<Point> excludedPoints = new HashSet<>();
+            for (var coordinate : coordinates) {
+                excludedPoints.add(GeoUtils.JTS_FACTORY.createPoint(coordinate));
+            }
+            for (var coordinate : coordinates) {
+                Point point = GeoUtils.JTS_FACTORY.createPoint(coordinate);
+                if (erasedPoints.contains(point)) {
+                    continue;
+                }
+                List<Point> closePoints = findClosePoints(strTree, point);
+                closePoints.removeAll(excludedPoints);
+                erasedPoints.addAll(closePoints);
+            }   
+        }
+
+        HashSet<Coordinate> erasedCoordinates = new HashSet<>();
+        for (var erasedPoint : erasedPoints) {
+            erasedCoordinates.add(erasedPoint.getCoordinate());
+        }
+        List<LineString> result = new ArrayList<>();
+        for (var line : lines) {
+            result.addAll(LineStringBreaker.breakLineString(line, erasedCoordinates, 10 * radius));
+        }
+
+        merger = new LoopLineMerger();
+        // merger.setPrecisionModel(new PrecisionModel(16));
+        merger.setPrecisionModel(new PrecisionModel());
+        for (var line : result) {
+            merger.add(line);
+        }
+        merger.setLoopMinLength(loopMinLength);
+        merger.setStubMinLength(loopMinLength);
+        merger.setTolerance(tolernace);
+        return merger.getMergedLineStrings(); 
+    }
+
+    // you are given a List<LineString> lines and a double radius
+    // first merge strokes based on angle at 3+-way-junctions
+    // then sort the linestring by length, longest first
+    // then loop over the linestrings and loop over the coordinates of each line string. 
+    // for each coordinate, make a point
+    // if the point is in the erased points, skip
+    // else find all points that fall into the radius
+    // filter those points for points that belong to other linestrings
+    // add those points to a set of erased points
+    // now the erased points set is completed
+
 
     // double radius = 5 * densifyDistance;
     // double loopMinLength = 5 * densifyDistance;

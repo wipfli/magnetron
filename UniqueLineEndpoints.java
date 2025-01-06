@@ -24,6 +24,7 @@ public class UniqueLineEndpoints {
             if (entry.getValue() == 1) {
                 uniqueEndpoints.add(entry.getKey());
             }
+            // uniqueEndpoints.add(entry.getKey());
         }
         return uniqueEndpoints;
     }

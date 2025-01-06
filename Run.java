@@ -49,17 +49,26 @@ public class Run {
         List<LineString> lines = getInput(filePath);
 
         Magnetron magnetron = new Magnetron();
-        magnetron.setDensifyDistance(1e-6);
-        magnetron.setLoopMinLength(5e-6);
-        magnetron.setRadius(5e-6);
-        magnetron.setTolerance(1e-7);
-        magnetron.setIterations(3);
 
+        magnetron.setDensifyDistance(1e-6);
+        magnetron.setLoopMinLength(0e-6); // 5e-6
+        magnetron.setRadius(5e-6);
+        magnetron.setTolerance(1e-7); // 1e-7
+        magnetron.setIterations(1);
         for (var line : lines) {
             magnetron.add(line);
         }
-
         lines = magnetron.getMagnetizedLineStrings();
+
+        magnetron = new Magnetron();
+        magnetron.setDensifyDistance(5e-7);
+        magnetron.setRadius(1e-6);
+        magnetron.setLoopMinLength(15e-6);
+        magnetron.setTolerance(1e-7); // 1e-7
+        for (var line : lines) {
+            magnetron.add(line);
+        }
+        lines = magnetron.getErasedLineStrings();
 
         for (var line : lines) {
             System.out.println(line);
