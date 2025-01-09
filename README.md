@@ -3,9 +3,7 @@ Collapse carriageways by making them magnetic
 
 ## Demo
 
-On the raw geometries: https://wipfli.github.io/magnetron/index.html
-
-On the tiles in Planetiler: https://wipfli.github.io/magnetron/boston.html
+https://wipfli.github.io/magnetron/index.html
 
 ## Usage
 
@@ -18,7 +16,7 @@ wget https://github.com/onthegomap/planetiler/releases/latest/download/planetile
 Then execute:
 
 ```
-./run.sh
+./run-index.sh
 ```
 
 ## License
