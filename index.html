@@ -20,11 +20,103 @@
       height: 100%;
       width: 100%;
     }
+
+    .map-overlay {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background-color: white;
+      padding: 10px;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      z-index: 1;
+    }
+
+    .modal {
+      display: none;
+      /* Hidden by default */
+      position: fixed;
+      /* Stay in place */
+      z-index: 1;
+      /* Sit on top */
+      left: 0;
+      top: 0;
+      width: 100%;
+      /* Full width */
+      height: 100%;
+      /* Full height */
+      background-color: rgba(0, 0, 0, 0.5);
+      /* Black background with opacity */
+      overflow: auto; /* Enable scrolling if content exceeds viewport height */
+    }
+
+    .modal-content {
+      background-color: #fff;
+      margin: 15% auto;
+      /* 15% from top and centered */
+      padding: 20px;
+      border: 1px solid #888;
+      width: 50%;
+      /* Could be more or less, depending on screen size */
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .close {
+      color: #aaa;
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .close:hover,
+    .close:focus {
+      color: #000;
+      text-decoration: none;
+    }
+
+    /* Media query for very small screens */
+    @media (max-width: 700px) {
+      .modal-content {
+        width: 80%;
+        /* Take up more space on very small screens */
+      }
+    }
   </style>
 </head>
 
 <body>
   <div id="map"></div>
+  <div class="map-overlay">
+    <form id="radioForm">
+    </form>
+    <div>
+      <span id="zoom-display">Zoom: </span>
+    </div>
+    <button id="openModal">Legend</button>
+  </div>
+  <div id="myModal" class="modal">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h1>Magnetron DC Demo</h1>
+      <p>Magnetron does 3 steps:</p>
+      <ol>
+        <li>It magnetizes the linestrings and attracts them, labeled as "-1"</li>
+        <li>It magnetizes the linestrings and attracts them again, labeled as "-2"</li>
+        <li>It follows linestrings starting by the longest and erases neighboring points, labeled as "-2-erased"</li>
+      </ol>
+      <p>In general, attraction uses 1 / distance between points and cos(angle difference of attached line segments of points).</p>
+      <p>This demo here in addition explores global overlap between linestrings. Stefan suggested to use the overlap between buffered lines as an additional information.</p>
+      <p>To take overlap into account, we do the following:</p>
+      <ul>
+        <li>Buffer all linestrings</li>
+        <li>Compute an intersection area matrix between the linestrings</li>
+        <li>When finding neighboring points, look up from which line they are, get the overlap to that line, and normalize it by the own buffered linestring area. This is the overlap weight.</li>
+      </ul>
+      <p>If two lines are close together over their full length, the overlap weigth will be maximal (0.5). If they are long and only cross somewhere, the overlap weigth will be small compared to 0.5.</p>
+    </div>
+  </div>
+
   <script src="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.js"></script>
   <script>
     const protocol = new pmtiles.Protocol();
@@ -33,51 +125,110 @@
     const map = new maplibregl.Map({
       container: 'map',
       style: "style.json",
-      center: [8.2954, 47.07061],
+      center: [-77.22038, 38.88627],
       zoom: 13,
       hash: 'map',
       maxZoom: 25
     });
 
+    var sources = [
+      'original',
+      'without-overlap-1',
+      'without-overlap-2',
+      'without-overlap-2-erased',
+      'overlap-1',
+      'overlap-2',
+      'overlap-2-erased'
+    ]
+    var form = document.getElementById('radioForm');
+
+    // Loop through the sources array to create and append radio inputs
+    sources.forEach(function (source) {
+      // Create a div to group the input and label
+      var div = document.createElement('div');
+
+      // Create the radio input
+      var input = document.createElement('input');
+      input.type = 'radio';
+      input.id = source;
+      input.name = 'geometry';
+      input.value = source;
+
+      // Set the default checked radio
+      if (source === 'original') {
+        input.checked = true;
+      }
+
+      // Create the label for the radio
+      var label = document.createElement('label');
+      label.htmlFor = source;
+      label.textContent = source;
+
+      // Append the input and label to the div
+      div.appendChild(input);
+      div.appendChild(label);
+
+      // Append the div to the form
+      form.appendChild(div);
+    });
+
+    form.addEventListener('change', function (event) {
+      for (var source of sources) {
+        if (event.target.value === source) {
+          for (var other of sources) {
+            map.setLayoutProperty(`line-layer-${other}`, 'visibility', 'none');
+          }
+          map.setLayoutProperty(`line-layer-${source}`, 'visibility', 'visible');
+          break;
+        }
+      }
+    });
+
     map.on('load', async () => {
-      map.addSource('line-source-0', {
-        type: 'vector',
-        url: "pmtiles://https://wipfli.github.io/magnetron/data/magnetized-0.pmtiles"
-      });
-      map.addSource('line-source-20', {
-        type: 'vector',
-        url: "pmtiles://https://wipfli.github.io/magnetron/data/magnetized-20.pmtiles"
-      });
+      for (var source of sources) {
+        map.addSource(`line-source-${source}`, {
+          type: 'vector',
+          url: `pmtiles://https://wipfli.github.io/magnetron/data/${source}.pmtiles`
+        })
+        map.addLayer({
+          id: `line-layer-${source}`,
+          type: 'line',
+          source: `line-source-${source}`,
+          'source-layer': 'magnetized',
+          layout: {
+            'visibility': 'none',
+          }
+        });
+      }
+      map.setLayoutProperty(`line-layer-${sources[0]}`, 'visibility', 'visible');
+    });
 
-      map.addLayer({
-        id: 'line-layer-0',
-        type: 'line',
-        source: 'line-source-0',
-        'source-layer': 'magnetized',
-        layout: {
-          'line-cap': 'round',
-        },
-        paint: {
-          'line-color': '#1abc9c',
-          'line-width': 3,
-          'line-opacity': 0.5,
-        }
-      });
+    const zoomDisplay = document.getElementById('zoom-display');
+    map.on('zoom', () => {
+        const currentZoom = map.getZoom().toFixed(2); // Get zoom level with 2 decimal places
+        zoomDisplay.textContent = `Zoom: ${currentZoom}`;
+    });
 
-      map.addLayer({
-        id: 'line-layer-20',
-        type: 'line',
-        source: 'line-source-20',
-        'source-layer': 'magnetized',
-        layout: {
-          'line-cap': 'round'
-        },
-        paint: {
-          'line-color': '#9b59b6',
-          'line-width': 4,
-          'line-opacity': 1,
-        }
-      });
+    // Get modal elements
+    var modal = document.getElementById('myModal');
+    var openModalButton = document.getElementById('openModal');
+    var closeModalButton = document.querySelector('.close');
+
+    // Open modal on button click
+    openModalButton.addEventListener('click', function () {
+      modal.style.display = 'block';
+    });
+
+    // Close modal when clicking the close button
+    closeModalButton.addEventListener('click', function () {
+      modal.style.display = 'none';
+    });
+
+    // Close modal when clicking outside the modal content
+    window.addEventListener('click', function (event) {
+      if (event.target === modal) {
+        modal.style.display = 'none';
+      }
     });
   </script>
 </body>
