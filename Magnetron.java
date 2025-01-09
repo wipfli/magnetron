@@ -150,6 +150,24 @@ public class Magnetron {
         return map;
     }
 
+    private static Map<Point, Integer> getPointToLineIndexMap(List<LineString> lines) {
+        Map<Point, Integer> map = new HashMap<>();
+        for (int i = 0; i < lines.size(); ++i) {
+            for (var coordinate : lines.get(i).getCoordinates()) {
+                var point = GeoUtils.JTS_FACTORY.createPoint(coordinate);
+                map.put(point, i);
+            }
+        }
+        return map;
+    }
+
+    private static double computeOverlapRelativeToA(int lineA, int lineB, double[][] intersectionMatrix) {
+        if (intersectionMatrix[lineA][lineA] == 0.0) {
+            return 0.0;
+        }
+        return intersectionMatrix[lineA][lineB] / intersectionMatrix[lineA][lineA];
+    }
+
     private List<LineString> magnetize(List<LineString> lines) {
         List<LineString> result = new ArrayList<>();
 
@@ -157,7 +175,11 @@ public class Magnetron {
         STRtree strTree = getTree(lines);
         Set<Point> uniqueEndpoints = new HashSet<>(); // UniqueLineEndpoints.findUniqueEndpoints(lines);
         Map<Point, Double> pointToAngleMap = getPointToAngleMap(lines);
-        for (var line : lines) {
+
+        double[][] intersectionMatrix = BufferIntersectionMatrix.computeIntersectionMatrix(lines, radius);
+        Map<Point, Integer> pointToLineIndexMap = getPointToLineIndexMap(lines);
+        for (int lineA = 0; lineA < lines.size(); ++lineA) {
+            var line = lines.get(lineA);
             var coordinates = line.getCoordinates();
             List<Point> magnetizedPoints = new ArrayList<>();
             for (var i = 0; i < coordinates.length; i++) {
@@ -184,7 +206,9 @@ public class Magnetron {
                         double angleWeight = Math.abs(Math.cos(angleDifference));
                         double distance = queryPoint.distance(closePoint);
                         double distanceWeight = distance > 0.0 ? 1 / distance : 1;
-                        weights.put(closePoint, distanceWeight * angleWeight);
+                        int lineB = pointToLineIndexMap.get(closePoint);
+                        double overlapWeight = computeOverlapRelativeToA(lineA, lineB, intersectionMatrix);
+                        weights.put(closePoint, distanceWeight * angleWeight * overlapWeight);
                     }
                     var midpointOthers = closePoints.size() > 0 ? getMidpoint(closePoints, weights) : queryPoint;
                     var midpoint = getMidpoint(queryPoint, midpointOthers);

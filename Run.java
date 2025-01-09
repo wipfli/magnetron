@@ -50,7 +50,7 @@ public class Run {
 
         Magnetron magnetron = new Magnetron();
 
-        for (int i = 0; i < 2; i++) {
+        for (int i = 0; i < 1; i++) {
             magnetron = new Magnetron();
             magnetron.setDensifyDistance(1e-6);
             magnetron.setLoopMinLength(0e-6); // 5e-6
@@ -62,15 +62,15 @@ public class Run {
             }
             lines = magnetron.getMagnetizedLineStrings();
         }
-        magnetron = new Magnetron();
-        magnetron.setDensifyDistance(5e-7);
-        magnetron.setRadius(1e-6);
-        magnetron.setLoopMinLength(15e-6);
-        magnetron.setTolerance(1e-7); // 1e-7
-        for (var line : lines) {
-            magnetron.add(line);
-        }
-        lines = magnetron.getErasedLineStrings();
+        // magnetron = new Magnetron();
+        // magnetron.setDensifyDistance(5e-7);
+        // magnetron.setRadius(1e-6);
+        // magnetron.setLoopMinLength(15e-6);
+        // magnetron.setTolerance(1e-7); // 1e-7
+        // for (var line : lines) {
+        //     magnetron.add(line);
+        // }
+        // lines = magnetron.getErasedLineStrings();
         
         for (var line : lines) {
             System.out.println(line);
