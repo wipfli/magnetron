@@ -7,10 +7,8 @@ import java.util.List;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.CoordinateXY;
 import org.locationtech.jts.geom.LineString;
-import org.locationtech.jts.geom.PrecisionModel;
 
 import com.onthegomap.planetiler.geo.GeoUtils;
-import com.onthegomap.planetiler.util.LoopLineMerger;
 
 public class Run {
     static LineString getLinestring(double startLat, double startLon, double endLat, double endLon) {
@@ -65,6 +63,7 @@ public class Run {
         // magnetron = new Magnetron();
         // magnetron.setDensifyDistance(5e-7);
         // magnetron.setRadius(1e-6);
+        // magnetron.setEraseMinLength(10e-6);
         // magnetron.setLoopMinLength(15e-6);
         // magnetron.setTolerance(1e-7); // 1e-7
         // for (var line : lines) {

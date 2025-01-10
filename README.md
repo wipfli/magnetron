@@ -1,9 +1,11 @@
 # magnetron
 Collapse carriageways by making them magnetic
 
-## Demo
+## Demos
 
-https://wipfli.github.io/magnetron/index.html
+Tippecanoe (DC): https://wipfli.github.io/magnetron/index.html
+
+Planetiler (Boston): https://wipfli.github.io/magnetron/boston.html
 
 ## Usage
 
@@ -17,6 +19,12 @@ Then execute:
 
 ```
 ./run-index.sh
+```
+
+or:
+
+```
+./run-plantiler.sh
 ```
 
 ## License

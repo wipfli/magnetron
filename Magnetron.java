@@ -18,11 +18,14 @@ import com.onthegomap.planetiler.util.LoopLineMerger;
 
 public class Magnetron {
     private final List<LineString> input = new ArrayList<>();
+    private final int EXCLUDE_RANGE = 50;
+
     private double loopMinLength = 0.0;
     private double radius = 0.0;
     private double densifyDistance = 0.0;
     private int iterations = 0;
     private double tolernace = 0.0;
+    private double eraseMinLength = 0.0;
 
     public Magnetron add(LineString line) {
         input.add(line);
@@ -51,6 +54,11 @@ public class Magnetron {
 
     public Magnetron setTolerance(double tolernace) {
         this.tolernace = tolernace;
+        return this;
+    }
+
+    public Magnetron setEraseMinLength(double eraseMinLength) {
+        this.eraseMinLength = eraseMinLength;
         return this;
     }
 
@@ -171,7 +179,6 @@ public class Magnetron {
     private List<LineString> magnetize(List<LineString> lines) {
         List<LineString> result = new ArrayList<>();
 
-        int excludeRange = 50;
         STRtree strTree = getTree(lines);
         Set<Point> uniqueEndpoints = new HashSet<>(); // UniqueLineEndpoints.findUniqueEndpoints(lines);
         Map<Point, Double> pointToAngleMap = getPointToAngleMap(lines);
@@ -184,7 +191,7 @@ public class Magnetron {
             List<Point> magnetizedPoints = new ArrayList<>();
             for (var i = 0; i < coordinates.length; i++) {
                 Set<Point> excludedPoints = new HashSet<>();
-                for (var ii = i - excludeRange; ii < i + excludeRange; ii++) {
+                for (var ii = i - EXCLUDE_RANGE; ii < i + EXCLUDE_RANGE; ii++) {
                     if (ii < 0 || ii >= coordinates.length) {
                         continue;
                     }
@@ -233,29 +240,8 @@ public class Magnetron {
         for (var line : lines) {
             densified.add(LineStringDensifier.densify(line, densifyDistance));
         }
-
-        // var merger = new LoopLineMerger();
-        // merger.setPrecisionModel(new PrecisionModel());
-        // for (var line : densified) {
-        //     merger.add(line);
-        // }
-        // var merged = merger.getMergedLineStrings();
-
         var magnetized = magnetize(densified);
         return magnetized;
-
-        // var merger = new LoopLineMerger();
-        // merger.setPrecisionModel(new PrecisionModel());
-
-        // for (var line : magnetized) {
-        //     merger.add(line);
-        // }
-
-        // merger2.setLoopMinLength(loopMinLength);
-        // merger2.setStubMinLength(loopMinLength);
-        // merger2.setTolerance(tolernace);
-
-        // return merger.getMergedLineStrings();
     }
 
 
@@ -272,7 +258,6 @@ public class Magnetron {
             lines = iterate(lines);
         }
         merger = new LoopLineMerger();
-        // merger.setPrecisionModel(new PrecisionModel(16));
         merger.setPrecisionModel(new PrecisionModel());
         for (var line : lines) {
             merger.add(line);
@@ -287,7 +272,6 @@ public class Magnetron {
         List<LineString> lines = List.copyOf(input);
         var merger = new LoopLineMerger();
         merger.setPrecisionModel(new PrecisionModel());
-        // merger.setMergeStrokes(true);
         for (var line : lines) {
             merger.add(line);
         }
@@ -302,16 +286,21 @@ public class Magnetron {
         Set<Point> erasedPoints = new HashSet<>();
         for (var line : lines) {
             var coordinates = line.getCoordinates();
-            Set<Point> excludedPoints = new HashSet<>();
-            for (var coordinate : coordinates) {
-                excludedPoints.add(GeoUtils.JTS_FACTORY.createPoint(coordinate));
-            }
-            for (var coordinate : coordinates) {
+            
+            for (var i = 0; i < coordinates.length; ++i) {
+                var coordinate = coordinates[i];
                 Point point = GeoUtils.JTS_FACTORY.createPoint(coordinate);
                 if (erasedPoints.contains(point)) {
                     continue;
                 }
                 List<Point> closePoints = findClosePoints(strTree, point);
+                Set<Point> excludedPoints = new HashSet<>();
+                for (var ii = i - EXCLUDE_RANGE; ii < i + EXCLUDE_RANGE; ii++) {
+                    if (ii < 0 || ii >= coordinates.length) {
+                        continue;
+                    }
+                    excludedPoints.add(GeoUtils.JTS_FACTORY.createPoint(coordinates[ii]));
+                }
                 closePoints.removeAll(excludedPoints);
                 erasedPoints.addAll(closePoints);
             }   
@@ -323,11 +312,10 @@ public class Magnetron {
         }
         List<LineString> result = new ArrayList<>();
         for (var line : lines) {
-            result.addAll(LineStringBreaker.breakLineString(line, erasedCoordinates, 10 * radius));
+            result.addAll(LineStringBreaker.breakLineString(line, erasedCoordinates, eraseMinLength));
         }
 
         merger = new LoopLineMerger();
-        // merger.setPrecisionModel(new PrecisionModel(16));
         merger.setPrecisionModel(new PrecisionModel());
         for (var line : result) {
             merger.add(line);
@@ -338,45 +326,4 @@ public class Magnetron {
         return merger.getMergedLineStrings(); 
     }
 
-    // you are given a List<LineString> lines and a double radius
-    // first merge strokes based on angle at 3+-way-junctions
-    // then sort the linestring by length, longest first
-    // then loop over the linestrings and loop over the coordinates of each line string. 
-    // for each coordinate, make a point
-    // if the point is in the erased points, skip
-    // else find all points that fall into the radius
-    // filter those points for points that belong to other linestrings
-    // add those points to a set of erased points
-    // now the erased points set is completed
-
-
-    // double radius = 5 * densifyDistance;
-    // double loopMinLength = 5 * densifyDistance;
-    // double tolerance = 0.5 * densifyDistance
-
-
-    // public static void main(String[] args) {
-
-    //     String filePath = "data/input.csv";
-    //     double densifyDistance = 1e-6;
-
-    //     List<LineString> lines = getInput(filePath);
-
-    //     int iterations = 10;
-    //     for (int i = 0; i < iterations; ++i) {
-    //         lines = process(lines, densifyDistance);
-    //     }
-
-    //     var merger = new LoopLineMerger();
-    //     merger.setPrecisionModel(new PrecisionModel());
-    //     for (var line : lines) {
-    //         merger.add(line);
-    //     }
-    //     merger.setTolerance(1);
-    //     lines = merger.getMergedLineStrings();
-        
-    //     for (var line : lines) {
-    //         System.out.println(line);
-    //     }
-    // }
 }

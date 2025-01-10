@@ -267,50 +267,77 @@ public class MyFeatureMerge {
     return result;
   }
 
-  public static List<VectorTile.Feature> magnetron(List<VectorTile.Feature> features, double densifyDistance, double loopMinLength, double radius, double tolerance, int iterations) {
+  public static List<VectorTile.Feature> magnetron(List<VectorTile.Feature> features, double densifyDistance, double tolerance) {
     List<VectorTile.Feature> result = new ArrayList<>(features.size());
     var groupedByAttrs = groupByAttrs(features, result, GeometryType.LINE);
     for (List<VectorTile.Feature> groupedFeatures : groupedByAttrs) {
       VectorTile.Feature feature1 = groupedFeatures.getFirst();
-      Magnetron magnetron = new Magnetron();
 
-      magnetron.setDensifyDistance(densifyDistance);
-      magnetron.setLoopMinLength(loopMinLength);
-      magnetron.setRadius(radius);
-      magnetron.setTolerance(tolerance);
-      magnetron.setIterations(iterations);
-
+      List<LineString> lines = new ArrayList<>();
       for (VectorTile.Feature feature : groupedFeatures) {
         try {
           Geometry geometry = feature.geometry().decode();
           if (geometry instanceof LineString line) {
-            magnetron.add(line);
+            lines.add(line);
           }
         } catch (GeometryException e) {
           e.log("Error decoding vector tile feature for line merge: " + feature);
         }
       }
-      List<LineString> outputSegments = magnetron.getMagnetizedLineStrings();
+
+      Magnetron magnetron = new Magnetron();
+
+      double magnetizeRadius = 10 * densifyDistance;
+      for (int i = 0; i < 2; ++i) {
+        magnetron = new Magnetron();
+        magnetron.setDensifyDistance(densifyDistance);
+        magnetron.setLoopMinLength(0);
+        magnetron.setRadius(magnetizeRadius / Math.pow(2, i));
+        magnetron.setTolerance(0.1 * densifyDistance);
+        magnetron.setIterations(1);
+        for (var line : lines) {
+          magnetron.add(line);
+        }
+        lines = magnetron.getMagnetizedLineStrings();
+      }
+
+      magnetron = new Magnetron();
+      magnetron.setDensifyDistance(densifyDistance);
+      magnetron.setRadius(2 * densifyDistance);
+      magnetron.setEraseMinLength(20 * densifyDistance);
+      magnetron.setLoopMinLength(20 * densifyDistance);
+      magnetron.setTolerance(tolerance);
+      for (var line : lines) {
+          magnetron.add(line);
+      }
+      lines = magnetron.getErasedLineStrings();
+      
+      List<LineString> outputSegments = lines;
       if (!outputSegments.isEmpty()) {
         outputSegments = sortByHilbertIndex(outputSegments);
         // Geometry newGeometry = GeoUtils.combineLineStrings(outputSegments);
         // result.add(feature1.copyWithNewGeometry(newGeometry));
+        int i = 0;
         for (var segment : outputSegments) {
           // System.out.println(segment);
           HashMap<String, Object> attrs = new HashMap<>();
+          attrs.put("i", i++);
           // attrs.put("start", segment.getStartPoint());
           // attrs.put("end", segment.getEndPoint());
           // attrs.put("length", segment.getLength());
 
           result.add(feature1.copyWithNewGeometry(segment).copyWithExtraAttrs(attrs));
 
-          // var A = segment.getStartPoint().buffer(0.5, 1);
-          // var B = segment.getEndPoint().buffer(1.0, 1);
+          // var A = segment.buffer(magnetizeRadius, 8);
           // result.add(feature1.copyWithNewGeometry(A));
-          // result.add(feature1.copyWithNewGeometry(B));
 
           // result.add(feature1.copyWithNewGeometry(segment.getStartPoint()));
           // result.add(feature1.copyWithNewGeometry(segment.getEndPoint()));
+
+          // for (var coordinate : segment.getCoordinates()) {
+          //   var point = GeoUtils.JTS_FACTORY.createPoint(coordinate);
+          //   result.add(feature1.copyWithNewGeometry(point));
+          // }
         }
       }
     }
