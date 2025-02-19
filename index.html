@@ -99,25 +99,14 @@
     <div class="modal-content">
       <span class="close">&times;</span>
       <h1>Magnetron DC Demo</h1>
-      <p>Magnetron does 3 steps:</p>
-      <ol>
-        <li>It magnetizes the linestrings and attracts them, labeled as "-1"</li>
-        <li>It magnetizes the linestrings and attracts them again, labeled as "-2"</li>
-        <li>It follows linestrings starting by the longest and erases neighboring points, labeled as "-2-erased"</li>
-      </ol>
-      <p>In general, attraction uses 1 / distance between points and cos(angle difference of attached line segments of points).</p>
-      <p>This demo here in addition explores global overlap between linestrings. Stefan suggested to use the overlap between buffered lines as an additional information.</p>
-      <p>To take overlap into account, we do the following:</p>
-      <ul>
-        <li>Buffer all linestrings</li>
-        <li>Compute an intersection area matrix between the linestrings</li>
-        <li>When finding neighboring points, look up from which line they are, get the overlap to that line, and normalize it by the own buffered linestring area. This is the overlap weight.</li>
-      </ul>
-      <p>If two lines are close together over their full length, the overlap weigth will be maximal (0.5). If they are long and only cross somewhere, the overlap weigth will be small compared to 0.5.</p>
-    </div>
+      <p><b>original</b>: the original road geometries from OpenStreetMap.</p>
+      <p><b>magnetized-1</b>: the geometries after 1 magnetize iteration.</p>
+      <p><b>magnetized-2</b>: the geometries after 2 magnetize iterations.</p>
+      <p><b>magnetized-3</b>: the geometries after 3 magnetize iteration3.</p>
+      <p><b>magnetized-3-erased</b>: the geometries after 3 magnetize iterations and after erasing.</p>
   </div>
 
-  <script src="https://unpkg.com/maplibre-gl@2.4.0/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script>
     const protocol = new pmtiles.Protocol();
     maplibregl.addProtocol('pmtiles', protocol.tile);
@@ -125,10 +114,9 @@
     const map = new maplibregl.Map({
       container: 'map',
       style: "style.json",
-      center: [-77.22038, 38.88627],
-      zoom: 13,
+      center: [-77.12494, 39.02378],
+      zoom: 14,
       hash: 'map',
-      maxZoom: 25
     });
 
     var sources = [
@@ -186,7 +174,7 @@
       for (var source of sources) {
         map.addSource(`line-source-${source}`, {
           type: 'vector',
-          url: `pmtiles://http://localhost:3000/data/${source}.pmtiles`
+          url: `pmtiles://https://wipfli.github.io/magnetron/data/${source}.pmtiles`
         })
         map.addLayer({
           id: `line-layer-${source}`,
