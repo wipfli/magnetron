@@ -132,18 +132,11 @@
     });
 
     var sources = [
-      'without-overlap-1',
-      'without-overlap-2',
-      'without-overlap-2-erased',
-      'overlap-1',
-      'overlap-2',
-      'overlap-2-erased',
       'original',
+      'magnetized-1',
+      'magnetized-2',
       'magnetized-3',
-      'magnetized-4',
-      'magnetized-5',
-      'magnetized-6',
-      'magnetized-6-erased',
+      'magnetized-3-erased',
     ]
     var form = document.getElementById('radioForm');
 
@@ -193,7 +186,7 @@
       for (var source of sources) {
         map.addSource(`line-source-${source}`, {
           type: 'vector',
-          url: `pmtiles://https://wipfli.github.io/magnetron/data/${source}.pmtiles`
+          url: `pmtiles://http://localhost:3000/data/${source}.pmtiles`
         })
         map.addLayer({
           id: `line-layer-${source}`,

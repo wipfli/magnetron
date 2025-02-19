@@ -48,7 +48,7 @@ public class Run {
 
         Magnetron magnetron = new Magnetron();
 
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 3; i++) {
             magnetron = new Magnetron();
             magnetron.setDensifyDistance(1e-6);
             magnetron.setLoopMinLength(0e-6); // 5e-6
