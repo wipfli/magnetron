@@ -15,7 +15,7 @@ public class MyProfile implements Profile {
         var arguments = Arguments.fromArgs(args)
             .withDefault("download", true)
             .withDefault("minzoom", 5)
-            .withDefault("maxzoom", 14);
+            .withDefault("maxzoom", 9);
         String area = "massachusetts";
         Planetiler.create(arguments)
             .addOsmSource("osm", Path.of("data", area + ".osm.pbf"), "geofabrik:" + area)
@@ -31,9 +31,9 @@ public class MyProfile implements Profile {
             features.line("magnetized")
                 .setPixelTolerance(0.0)
                 .setMinPixelSize(0.0);
-            // features.line("orig")
-            //     .setPixelTolerance(0.0)
-            //     .setMinPixelSize(0.0);
+            features.line("orig")
+                .setPixelTolerance(0.0)
+                .setMinPixelSize(0.0);
         }
     }
 
@@ -41,8 +41,8 @@ public class MyProfile implements Profile {
     public List<VectorTile.Feature> postProcessLayerFeatures(String layer, int zoom,
             List<VectorTile.Feature> items) throws GeometryException {
 
-        double tolerance = zoom == 14 ? 0 : 8 * 0.0625;
-        if (layer.equals("orig") || zoom > 9) {
+        double tolerance = 0; // zoom == 14 ? 0 : 8 * 0.0625;
+        if (layer.equals("orig")) {
             return FeatureMerge.mergeLineStrings(items, 4 * 0.0625, tolerance, 4, true);
         }
         // densifyDistance 1e-6

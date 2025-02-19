@@ -220,8 +220,8 @@ public class Magnetron {
                     var midpointOthers = closePoints.size() > 0 ? getMidpoint(closePoints, weights) : queryPoint;
                     var midpoint = getMidpoint(queryPoint, midpointOthers);
                     weights.clear();
-                    weights.put(queryPoint, 0.05);
-                    weights.put(midpoint, 0.95);
+                    weights.put(queryPoint, 0.5);
+                    weights.put(midpoint, 0.5);
                     List<Point> points = new ArrayList<>();
                     points.add(queryPoint);
                     points.add(midpoint);
