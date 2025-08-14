@@ -5,6 +5,10 @@ Collapse carriageways by making them magnetic
 
 https://wipfli.github.io/magnetron/index.html
 
+## Blog Post
+
+https://oliverwipfli.ch/collapsing-carriageways-with-magnetron-2025-02-20/
+
 ## Usage
 
 Download the planetiler jar with:
